@@ -3,14 +3,14 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAl0rt0t5roEf5Dcze7Hu_3NW9-fz6Lxr8",
-  authDomain: "lakfa-5d1b0.firebaseapp.com",
-  projectId: "lakfa-5d1b0",
-  storageBucket: "lakfa-5d1b0.firebasestorage.app",
-  messagingSenderId: "695059177078",
-  appId: "1:695059177078:web:d548f828b63ebaf08f4957",
-  measurementId: "G-Z15B7Y4KYF"
+export const firebaseConfig = {
+    apiKey: "AIzaSyCQjO9TcXCve9gI0ysdzCO1thV8SBTFjcc",
+    authDomain: "lakfa-3bfb1.firebaseapp.com",
+    projectId: "lakfa-3bfb1",
+    storageBucket: "lakfa-3bfb1.firebasestorage.app",
+    messagingSenderId: "830319839000",
+    appId: "1:830319839000:web:7129aa7e577d2c67f4806d",
+    measurementId: "G-EB9GVF5L3Z"
 };
 
 export const app = initializeApp(firebaseConfig);
