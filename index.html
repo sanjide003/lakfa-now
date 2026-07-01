@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lakfa Foods - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'); body{font-family:'Inter',sans-serif;background-color:#f3f4f6}.hidden{display:none!important}</style>
+</head>
+<body class="text-gray-800">
+    <div id="toast" class="fixed top-4 right-4 z-[100] p-4 rounded-md shadow-lg text-white flex items-center transition-all transform translate-x-full opacity-0 duration-300"><span id="toast-message" class="text-sm font-medium"></span></div>
+
+    <div id="login-screen" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md border border-gray-100 text-center">
+            <div class="mb-8 flex flex-col items-center">
+                <img src="assets/logo.png" alt="Lakfa Foods Logo" onerror="this.style.display='none'" class="w-24 h-24 object-contain mb-4 bg-gray-50 rounded-full p-2 border border-gray-100 shadow-sm">
+                <h1 class="text-2xl font-bold text-red-600 tracking-tight" id="login-company-name">Lakfa Foods</h1>
+                <p class="text-sm text-gray-500 mt-1" id="login-company-address">Manager / Investor Login</p>
+            </div>
+            <form id="login-form" class="space-y-5 text-left">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label><input type="email" id="login-email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 shadow-sm" placeholder="email@lakfa.com"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Password</label><div class="relative"><input type="password" id="login-password" required class="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 shadow-sm" placeholder="••••••••"><button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"><svg id="eye-icon" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button></div></div>
+                <button type="submit" id="login-button" class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "./firebase-config.js";
+        import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        window.showToast = function(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = message;
+            toast.className = `fixed top-4 right-4 z-[100] p-4 rounded-md shadow-lg text-white flex items-center transition-all transform duration-300 ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
+            setTimeout(() => toast.classList.remove('translate-x-full', 'opacity-0'), 10);
+            setTimeout(() => toast.classList.add('translate-x-full', 'opacity-0'), 3000);
+        };
+
+        window.togglePassword = function() {
+            const input = document.getElementById('login-password');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        };
+
+        async function redirectByRole(user) {
+            const userSnap = await getDoc(doc(db, "users", user.uid)).catch(() => null);
+            const role = userSnap && userSnap.exists() ? userSnap.data().role : null;
+            if(role === 'manager') { window.location.href = 'manager.html'; return true; }
+            if(role === 'investor') { window.location.href = 'investor.html'; return true; }
+            await signOut(auth);
+            showToast('Invalid Email or Password', 'error');
+            return false;
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-button');
+            btn.disabled = true;
+            btn.innerText = 'Checking...';
+            try {
+                const credential = await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value);
+                const redirected = await redirectByRole(credential.user);
+                if(!redirected) {
+                    btn.disabled = false;
+                    btn.innerText = 'Login';
+                }
+            } catch (error) {
+                btn.disabled = false;
+                btn.innerText = 'Login';
+                showToast('Invalid Email or Password', 'error');
+            }
+        });
+
+        onAuthStateChanged(auth, (user) => { if(user) redirectByRole(user); });
+        getDoc(doc(db, "settings", "config")).then(docSnap => {
+            if(docSnap.exists()) {
+                const data = docSnap.data();
+                document.getElementById('login-company-name').innerText = data.name || 'Lakfa Foods';
+                document.getElementById('login-company-address').innerText = data.businessAddress || data.address1 || 'Manager / Investor Login';
+            }
+        }).catch(() => {});
+    </script>
+</body>
+</html>
