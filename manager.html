@@ -5333,6 +5333,33 @@
             } catch (e) { console.warn('Logo could not be added to invoice', e); return { width: height, height }; }
         }
 
+        function getCustomerBillLines(customer, includeName = false) {
+            return [
+                includeName ? (customer.name || 'Customer') : '',
+                customer.shopName ? `Shop: ${customer.shopName}` : '',
+                customer.address || '',
+                customer.landmark ? `Landmark: ${customer.landmark}` : '',
+                customer.location ? `Location: ${customer.location}` : '',
+                customer.pincode ? `PIN: ${customer.pincode}` : '',
+                customer.phone ? `Ph: ${customer.phone}` : '',
+                customer.gstin ? `GSTIN ${customer.gstin}` : ''
+            ].filter(Boolean);
+        }
+
+        function getCustomerShipLines(customer, includeName = false) {
+            return [
+                includeName ? (customer.name || customer.shopName || 'Customer') : '',
+                customer.shopName && includeName ? `Shop: ${customer.shopName}` : '',
+                customer.address || '',
+                customer.landmark ? `Landmark: ${customer.landmark}` : '',
+                customer.location ? `Location: ${customer.location}` : '',
+                customer.pincode ? `PIN: ${customer.pincode}` : '',
+                customer.phone ? `Ph: ${customer.phone}` : '',
+                customer.gstin ? `GSTIN ${customer.gstin}` : ''
+            ].filter(Boolean);
+        }
+
+
         function drawInvoicePageFrame(doc) {
             // Keep invoice content border-free; table separators/signature lines are drawn where needed for printing.
         }
@@ -5376,10 +5403,11 @@
             doc.text('Bill To', 20, 88);
             doc.setFont('helvetica', 'bold'); doc.text(customer.name || 'Customer', 20, 94);
             doc.setFont('helvetica', 'normal');
-            const billLines = [customer.shopName ? `Shop: ${customer.shopName}` : '', customer.address || '', customer.pincode ? `PIN: ${customer.pincode}` : '', customer.phone ? `Ph: ${customer.phone}` : '', customer.gstin ? `GSTIN ${customer.gstin}` : ''].filter(Boolean);
+            const billLines = getCustomerBillLines(customer);
             doc.text(doc.splitTextToSize(billLines.join('\n'), 78), 20, 99, { lineHeightFactor: 1.05 });
             doc.text('Ship To', 20, 124);
-            doc.text(customer.gstin ? `GSTIN ${customer.gstin}` : '', 20, 129);
+            const shipLines = getCustomerShipLines(customer);
+            doc.text(doc.splitTextToSize(shipLines.join('\n'), 78), 20, 129, { lineHeightFactor: 1.05 });
 
             const details = [
                 ['Invoice Date :', formatDisplayDate(invoiceDate)],
@@ -5550,8 +5578,13 @@
             doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
             doc.text(companySettings.name || 'Lakfa Foods', marginX, a5CompanyY, { maxWidth: 58 });
             doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
-            const companyLines = [...getCompanyAddressLines(), companySettings.gstin ? `GSTIN ${companySettings.gstin}` : '', companySettings.phone ? `Ph: ${companySettings.phone}` : ''].filter(Boolean);
-            doc.text(companyLines.slice(0, 4), marginX, a5CompanyY + 5, { lineHeightFactor: 1.08, maxWidth: 58 });
+            const companyLines = [
+                ...getCompanyAddressLines(),
+                companySettings.gstin ? `GSTIN ${companySettings.gstin}` : '',
+                companySettings.phone ? `Ph: ${companySettings.phone}` : '',
+                companySettings.email ? `Email: ${companySettings.email}` : ''
+            ].filter(Boolean).slice(0, 6);
+            doc.text(companyLines, marginX, a5CompanyY + 5, { lineHeightFactor: 1.08, maxWidth: 70 });
 
             doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
             doc.text('TAX INVOICE', slotX + slotW - 6, y0 + 4, { align: 'right' });
@@ -5561,14 +5594,20 @@
             doc.text(`Date: ${formatDisplayDate(order.createdAt)}`, slotX + slotW - 6, y0 + 18, { align: 'right' });
             doc.text(`Balance: ${formatPdfMoney(due)}`, slotX + slotW - 6, y0 + 25, { align: 'right' });
 
-            let y = Math.max(y0 + 35, a5CompanyY + 25);
+            let y = Math.max(y0 + 42, a5CompanyY + 8 + (companyLines.length * 3.6));
+            const addressColumnW = (contentW - 4) / 2;
             doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
             doc.text('Bill To', marginX, y);
-            doc.setFont('helvetica', 'normal');
-            const bill = [order.name || 'Customer', order.shopName ? `Shop: ${order.shopName}` : '', order.address || '', order.pincode ? `PIN: ${order.pincode}` : '', order.phone ? `Ph: ${order.phone}` : '', order.gstin ? `GSTIN ${order.gstin}` : ''].filter(Boolean).join('\n');
-            doc.text(doc.splitTextToSize(bill, 92).slice(0, 8), marginX, y + 5, { lineHeightFactor: 1.08 });
+            doc.text('Ship To', marginX + addressColumnW + 4, y);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
+            const bill = getCustomerBillLines(order, true).join('\n');
+            const ship = getCustomerShipLines(order, true).join('\n');
+            const billAddressLines = doc.splitTextToSize(bill, addressColumnW).slice(0, 8);
+            const shipAddressLines = doc.splitTextToSize(ship, addressColumnW).slice(0, 8);
+            doc.text(billAddressLines, marginX, y + 5, { lineHeightFactor: 1.08 });
+            doc.text(shipAddressLines, marginX + addressColumnW + 4, y + 5, { lineHeightFactor: 1.08 });
 
-            y += 34;
+            y += 42;
             doc.setFillColor(55, 55, 55);
             doc.rect(marginX, y, contentW, 7, 'F');
             doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
