@@ -5341,11 +5341,13 @@
 
         function addInvoicePageNumbers(doc) {
             const pageCount = doc.internal.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
             for(let page = 1; page <= pageCount; page++) {
                 doc.setPage(page);
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(8);
-                doc.text(`Page ${page} of ${pageCount}`, 200, 292, { align: 'right' });
+                doc.text(`Page ${page} of ${pageCount}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
             }
         }
 
@@ -5518,12 +5520,11 @@
         }
 
 
-        function drawA5InvoiceSlot(doc, order, slotIndex = 0) {
-            const pageW = 210;
-            const pageH = 297;
+        function drawA5InvoiceSlot(doc, order, slotIndex = 0, slotsOnPage = 2) {
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
             const slotW = pageW / 2;
-            const slotX = slotIndex === 0 ? 0 : slotW;
-            const top = 0;
+            const slotX = slotsOnPage === 1 ? (pageW - slotW) / 2 : (slotIndex === 0 ? 0 : slotW);
             const marginX = slotX + 6;
             const y0 = 8;
             const contentW = slotW - 12;
@@ -5538,7 +5539,7 @@
             const taxable = rows.reduce((sum, row) => sum + row.taxable, 0);
             const cgst = rows.reduce((sum, row) => sum + row.cgst, 0);
             const sgst = rows.reduce((sum, row) => sum + row.sgst, 0);
-            if(slotIndex === 1) {
+            if(slotsOnPage === 2 && slotIndex === 1) {
                 doc.setDrawColor(210);
                 doc.setLineDashPattern([2, 2], 0);
                 doc.line(slotW, 6, slotW, pageH - 6);
@@ -5623,10 +5624,11 @@
 
         function buildA5InvoicesPdf(ordersToPrint) {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
             ordersToPrint.forEach((order, index) => {
                 if(index > 0 && index % 2 === 0) doc.addPage();
-                drawA5InvoiceSlot(doc, order, index % 2);
+                const isLastSingle = index === ordersToPrint.length - 1 && ordersToPrint.length % 2 === 1;
+                drawA5InvoiceSlot(doc, order, isLastSingle ? 0 : index % 2, isLastSingle ? 1 : 2);
             });
             addInvoicePageNumbers(doc);
             return doc;
