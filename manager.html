@@ -2841,7 +2841,6 @@
             const expensePayable = Math.max(0, expenseTotal + expenseAdjustment);
             const expensePaidTotal = orderExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
             const expenseBalanceDue = Math.max(0, expensePayable - expensePaidTotal);
-            if(expensePaidTotal - expensePayable > 0.01) { showToast('Expense paid cannot be greater than expense payable amount', 'error'); return; }
             const firstPayment = Number(document.getElementById('order-first-payment').value) || 0;
             const roundOff = Number(document.getElementById('order-round-off').value) || 0;
             const discount = Number(document.getElementById('order-discount').value) || 0;
@@ -2850,7 +2849,6 @@
             const payableTotal = Math.max(0, orderItemsTotal + roundOff - discount);
             const paidTotal = firstPayment + paymentHistory.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
             const balanceDue = Math.max(0, payableTotal - paidTotal);
-            if(paidTotal - payableTotal > 0.01) { showToast('Payment cannot be greater than payable amount', 'error'); return; }
 
             const orderData = {
                 createdAt: dateStr, updatedAt: dateStr,
@@ -5520,11 +5518,11 @@
         }
 
 
-        function drawA5InvoiceSlot(doc, order, slotIndex = 0, slotsOnPage = 2) {
+        function drawA5InvoiceSlot(doc, order, slotIndex = 0) {
             const pageW = doc.internal.pageSize.getWidth();
             const pageH = doc.internal.pageSize.getHeight();
             const slotW = pageW / 2;
-            const slotX = slotsOnPage === 1 ? (pageW - slotW) / 2 : (slotIndex === 0 ? 0 : slotW);
+            const slotX = slotIndex === 0 ? 0 : slotW;
             const marginX = slotX + 6;
             const y0 = 8;
             const contentW = slotW - 12;
@@ -5539,7 +5537,7 @@
             const taxable = rows.reduce((sum, row) => sum + row.taxable, 0);
             const cgst = rows.reduce((sum, row) => sum + row.cgst, 0);
             const sgst = rows.reduce((sum, row) => sum + row.sgst, 0);
-            if(slotsOnPage === 2 && slotIndex === 1) {
+            if(slotIndex === 1) {
                 doc.setDrawColor(210);
                 doc.setLineDashPattern([2, 2], 0);
                 doc.line(slotW, 6, slotW, pageH - 6);
@@ -5627,10 +5625,8 @@
             const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
             ordersToPrint.forEach((order, index) => {
                 if(index > 0 && index % 2 === 0) doc.addPage();
-                const isLastSingle = index === ordersToPrint.length - 1 && ordersToPrint.length % 2 === 1;
-                drawA5InvoiceSlot(doc, order, isLastSingle ? 0 : index % 2, isLastSingle ? 1 : 2);
+                drawA5InvoiceSlot(doc, order, index % 2);
             });
-            addInvoicePageNumbers(doc);
             return doc;
         }
 
