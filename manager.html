@@ -2841,7 +2841,6 @@
             const expensePayable = Math.max(0, expenseTotal + expenseAdjustment);
             const expensePaidTotal = orderExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
             const expenseBalanceDue = Math.max(0, expensePayable - expensePaidTotal);
-            if(expensePaidTotal - expensePayable > 0.01) { showToast('Expense paid cannot be greater than expense payable amount', 'error'); return; }
             const firstPayment = Number(document.getElementById('order-first-payment').value) || 0;
             const roundOff = Number(document.getElementById('order-round-off').value) || 0;
             const discount = Number(document.getElementById('order-discount').value) || 0;
@@ -2850,7 +2849,6 @@
             const payableTotal = Math.max(0, orderItemsTotal + roundOff - discount);
             const paidTotal = firstPayment + paymentHistory.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
             const balanceDue = Math.max(0, payableTotal - paidTotal);
-            if(paidTotal - payableTotal > 0.01) { showToast('Payment cannot be greater than payable amount', 'error'); return; }
 
             const orderData = {
                 createdAt: dateStr, updatedAt: dateStr,
@@ -5335,17 +5333,46 @@
             } catch (e) { console.warn('Logo could not be added to invoice', e); return { width: height, height }; }
         }
 
+        function getCustomerBillLines(customer, includeName = false) {
+            return [
+                includeName ? (customer.name || 'Customer') : '',
+                customer.shopName ? `Shop: ${customer.shopName}` : '',
+                customer.address || '',
+                customer.landmark ? `Landmark: ${customer.landmark}` : '',
+                customer.location ? `Location: ${customer.location}` : '',
+                customer.pincode ? `PIN: ${customer.pincode}` : '',
+                customer.phone ? `Ph: ${customer.phone}` : '',
+                customer.gstin ? `GSTIN ${customer.gstin}` : ''
+            ].filter(Boolean);
+        }
+
+        function getCustomerShipLines(customer, includeName = false) {
+            return [
+                includeName ? (customer.name || customer.shopName || 'Customer') : '',
+                customer.shopName && includeName ? `Shop: ${customer.shopName}` : '',
+                customer.address || '',
+                customer.landmark ? `Landmark: ${customer.landmark}` : '',
+                customer.location ? `Location: ${customer.location}` : '',
+                customer.pincode ? `PIN: ${customer.pincode}` : '',
+                customer.phone ? `Ph: ${customer.phone}` : '',
+                customer.gstin ? `GSTIN ${customer.gstin}` : ''
+            ].filter(Boolean);
+        }
+
+
         function drawInvoicePageFrame(doc) {
             // Keep invoice content border-free; table separators/signature lines are drawn where needed for printing.
         }
 
         function addInvoicePageNumbers(doc) {
             const pageCount = doc.internal.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
             for(let page = 1; page <= pageCount; page++) {
                 doc.setPage(page);
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(8);
-                doc.text(`Page ${page} of ${pageCount}`, 200, 292, { align: 'right' });
+                doc.text(`Page ${page} of ${pageCount}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
             }
         }
 
@@ -5376,7 +5403,7 @@
             doc.text('Bill To', 20, 88);
             doc.setFont('helvetica', 'bold'); doc.text(customer.name || 'Customer', 20, 94);
             doc.setFont('helvetica', 'normal');
-            const billLines = [customer.shopName ? `Shop: ${customer.shopName}` : '', customer.address || '', customer.pincode ? `PIN: ${customer.pincode}` : '', customer.phone ? `Ph: ${customer.phone}` : '', customer.gstin ? `GSTIN ${customer.gstin}` : ''].filter(Boolean);
+            const billLines = getCustomerBillLines(customer);
             doc.text(doc.splitTextToSize(billLines.join('\n'), 78), 20, 99, { lineHeightFactor: 1.05 });
             doc.text('Ship To', 20, 124);
             doc.text(customer.gstin ? `GSTIN ${customer.gstin}` : '', 20, 129);
@@ -5472,18 +5499,17 @@
                 y = 28;
             }
             doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-            doc.line(20, y - 5, 192, y - 5);
             const totalGst = cgst + sgst;
             if(showGst) {
                 doc.text('Total Taxable Amount', 156, y, { align: 'right' }); doc.text(formatPdfMoney(taxable), 190, y, { align: 'right' }); y += 8;
+                doc.text('CGST', 156, y, { align: 'right' }); doc.text(formatPdfMoney(cgst), 190, y, { align: 'right' }); y += 8;
+                doc.text('SGST', 156, y, { align: 'right' }); doc.text(formatPdfMoney(sgst), 190, y, { align: 'right' }); y += 8;
                 doc.text('Total GST', 156, y, { align: 'right' }); doc.text(formatPdfMoney(totalGst), 190, y, { align: 'right' }); y += 9;
             }
             if(discount) { doc.text('Discount', 156, y, { align: 'right' }); doc.text(formatPdfMoney(discount), 190, y, { align: 'right' }); y += 8; }
             if(roundOff) { doc.text('Round Off', 156, y, { align: 'right' }); doc.text(formatPdfMoney(roundOff), 190, y, { align: 'right' }); y += 8; }
             doc.setFont('helvetica', 'bold'); doc.text('Total', 156, y, { align: 'right' }); doc.text(formatPdfMoney(total), 190, y, { align: 'right' }); y += 9;
-            doc.setFont('helvetica', 'normal'); doc.text('Payment Received', 156, y, { align: 'right' }); doc.text(formatPdfMoney(paid), 190, y, { align: 'right' }); y += 11;
-            doc.setFont('helvetica', 'bold'); doc.setFillColor(245, 245, 245); doc.rect(106, y - 7, 86, 10, 'F');
-            doc.text('Balance Due', 156, y, { align: 'right' }); doc.text(formatPdfMoney(due), 190, y, { align: 'right' }); y += 11;
+            doc.setFont('helvetica', 'bold'); doc.text('Payment Received', 156, y, { align: 'right' }); doc.text(formatPdfMoney(paid), 190, y, { align: 'right' }); y += 11;
             doc.setFont('helvetica', 'normal'); doc.text('Total In Words:', 134, y, { align: 'right' });
             doc.setFont('helvetica', 'bolditalic'); doc.text(doc.splitTextToSize(amountToWords(total), 42), 140, y);
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
@@ -5511,7 +5537,7 @@
             const cgst = rows.reduce((sum, row) => sum + row.cgst, 0);
             const sgst = rows.reduce((sum, row) => sum + row.sgst, 0);
             drawInvoiceHeader(doc, 'TAX INVOICE', getInvoiceNumber(order), order, due, order.createdAt);
-            const showGst = rows.some(row => row.priceType !== 'withoutGst' && row.gstPercent > 0);
+            const showGst = true;
             const y = addInvoiceTable(doc, rows, 134, showGst);
             finishInvoicePdf(doc, y, { total, paid, due, taxable, cgst, sgst, showGst, roundOff: Number(order.roundOff) || 0, discount: Number(order.discount) || 0, itemsTotal: getOrderItemsTotal(order) });
             return doc;
@@ -5519,11 +5545,10 @@
 
 
         function drawA5InvoiceSlot(doc, order, slotIndex = 0) {
-            const pageW = 210;
-            const pageH = 297;
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
             const slotW = pageW / 2;
             const slotX = slotIndex === 0 ? 0 : slotW;
-            const top = 0;
             const marginX = slotX + 6;
             const y0 = 8;
             const contentW = slotW - 12;
@@ -5534,7 +5559,7 @@
             const total = Number(order.orderTotal) || itemsTotal;
             const paid = getOrderPaidTotal(order);
             const due = getOrderBalanceDue(order);
-            const showGst = rows.some(row => row.priceType !== 'withoutGst' && row.gstPercent > 0);
+            const showGst = true;
             const taxable = rows.reduce((sum, row) => sum + row.taxable, 0);
             const cgst = rows.reduce((sum, row) => sum + row.cgst, 0);
             const sgst = rows.reduce((sum, row) => sum + row.sgst, 0);
@@ -5551,8 +5576,13 @@
             doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
             doc.text(companySettings.name || 'Lakfa Foods', marginX, a5CompanyY, { maxWidth: 58 });
             doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
-            const companyLines = [...getCompanyAddressLines(), companySettings.gstin ? `GSTIN ${companySettings.gstin}` : '', companySettings.phone ? `Ph: ${companySettings.phone}` : ''].filter(Boolean);
-            doc.text(companyLines.slice(0, 4), marginX, a5CompanyY + 5, { lineHeightFactor: 1.08, maxWidth: 58 });
+            const companyLines = [
+                ...getCompanyAddressLines(),
+                companySettings.gstin ? `GSTIN ${companySettings.gstin}` : '',
+                companySettings.phone ? `Ph: ${companySettings.phone}` : '',
+                companySettings.email ? `Email: ${companySettings.email}` : ''
+            ].filter(Boolean).slice(0, 6);
+            doc.text(companyLines, marginX, a5CompanyY + 5, { lineHeightFactor: 1.08, maxWidth: 70 });
 
             doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
             doc.text('TAX INVOICE', slotX + slotW - 6, y0 + 4, { align: 'right' });
@@ -5562,18 +5592,25 @@
             doc.text(`Date: ${formatDisplayDate(order.createdAt)}`, slotX + slotW - 6, y0 + 18, { align: 'right' });
             doc.text(`Balance: ${formatPdfMoney(due)}`, slotX + slotW - 6, y0 + 25, { align: 'right' });
 
-            let y = Math.max(y0 + 35, a5CompanyY + 25);
+            let y = Math.max(y0 + 42, a5CompanyY + 8 + (companyLines.length * 3.6));
             doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
             doc.text('Bill To', marginX, y);
-            doc.setFont('helvetica', 'normal');
-            const bill = [order.name || 'Customer', order.shopName ? `Shop: ${order.shopName}` : '', order.address || '', order.pincode ? `PIN: ${order.pincode}` : '', order.phone ? `Ph: ${order.phone}` : '', order.gstin ? `GSTIN ${order.gstin}` : ''].filter(Boolean).join('\n');
-            doc.text(doc.splitTextToSize(bill, 92).slice(0, 8), marginX, y + 5, { lineHeightFactor: 1.08 });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
+            const bill = getCustomerBillLines(order, true).join('\n');
+            const ship = order.gstin ? `GSTIN ${order.gstin}` : '';
+            const billAddressLines = doc.splitTextToSize(bill, contentW).slice(0, 7);
+            doc.text(billAddressLines, marginX, y + 5, { lineHeightFactor: 1.08 });
+            y += 8 + (billAddressLines.length * 3.6);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+            doc.text('Ship To', marginX, y);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
+            if(ship) doc.text(ship, marginX, y + 5);
 
-            y += 34;
+            y += 14;
             doc.setFillColor(55, 55, 55);
             doc.rect(marginX, y, contentW, 7, 'F');
             doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
-            doc.text('#', marginX + 2, y + 5); doc.text('Item', marginX + 8, y + 5); doc.text('Qty', marginX + 54, y + 5, { align: 'right' }); doc.text('Rate', marginX + 70, y + 5, { align: 'right' });
+            doc.text('#', marginX + 2, y + 5); doc.text('Item', marginX + 8, y + 5); doc.text('Quantity', marginX + 54, y + 5, { align: 'right' }); doc.text('Rate', marginX + 70, y + 5, { align: 'right' });
             if(showGst) { doc.text('GST', marginX + 80, y + 5, { align: 'right' }); }
             doc.text('Amount', slotX + slotW - 6 - 2, y + 5, { align: 'right' });
             doc.setTextColor(0); doc.setFont('helvetica', 'normal');
@@ -5600,12 +5637,12 @@
                 totalLine('Taxable Amount', formatPdfMoney(taxable));
                 totalLine('CGST', formatPdfMoney(cgst));
                 totalLine('SGST', formatPdfMoney(sgst));
+                totalLine('Total GST', formatPdfMoney(cgst + sgst));
             }
             if(discount) totalLine('Discount', formatPdfMoney(discount));
             if(roundOff) totalLine('Round Off', formatPdfMoney(roundOff));
             totalLine('Total', formatPdfMoney(total), true);
-            totalLine('Paid', formatPdfMoney(paid));
-            totalLine('Balance Due', formatPdfMoney(due), true);
+            totalLine('Payment Received', formatPdfMoney(paid), true);
 
             y += 4;
             doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
@@ -5623,12 +5660,11 @@
 
         function buildA5InvoicesPdf(ordersToPrint) {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
             ordersToPrint.forEach((order, index) => {
                 if(index > 0 && index % 2 === 0) doc.addPage();
                 drawA5InvoiceSlot(doc, order, index % 2);
             });
-            addInvoicePageNumbers(doc);
             return doc;
         }
 
@@ -5701,7 +5737,7 @@
             const cgst = rows.reduce((sum, row) => sum + row.cgst, 0);
             const sgst = rows.reduce((sum, row) => sum + row.sgst, 0);
             drawInvoiceHeader(doc, 'TAX INVOICE', `TOTAL-${String(partyKey).slice(0, 18).toUpperCase()}`, latest, summary.due, getTodayString());
-            const showGst = rows.some(row => row.priceType !== 'withoutGst' && row.gstPercent > 0);
+            const showGst = true;
             const y = addInvoiceTable(doc, rows, 134, showGst);
             finishInvoicePdf(doc, y, { total: summary.total, paid: summary.paid, due: summary.due, taxable, cgst, sgst, showGst });
             return doc;
