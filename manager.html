@@ -5406,8 +5406,7 @@
             const billLines = getCustomerBillLines(customer);
             doc.text(doc.splitTextToSize(billLines.join('\n'), 78), 20, 99, { lineHeightFactor: 1.05 });
             doc.text('Ship To', 20, 124);
-            const shipLines = getCustomerShipLines(customer);
-            doc.text(doc.splitTextToSize(shipLines.join('\n'), 78), 20, 129, { lineHeightFactor: 1.05 });
+            doc.text(customer.gstin ? `GSTIN ${customer.gstin}` : '', 20, 129);
 
             const details = [
                 ['Invoice Date :', formatDisplayDate(invoiceDate)],
@@ -5500,7 +5499,6 @@
                 y = 28;
             }
             doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-            doc.line(20, y - 5, 192, y - 5);
             const totalGst = cgst + sgst;
             if(showGst) {
                 doc.text('Total Taxable Amount', 156, y, { align: 'right' }); doc.text(formatPdfMoney(taxable), 190, y, { align: 'right' }); y += 8;
@@ -5509,9 +5507,7 @@
             if(discount) { doc.text('Discount', 156, y, { align: 'right' }); doc.text(formatPdfMoney(discount), 190, y, { align: 'right' }); y += 8; }
             if(roundOff) { doc.text('Round Off', 156, y, { align: 'right' }); doc.text(formatPdfMoney(roundOff), 190, y, { align: 'right' }); y += 8; }
             doc.setFont('helvetica', 'bold'); doc.text('Total', 156, y, { align: 'right' }); doc.text(formatPdfMoney(total), 190, y, { align: 'right' }); y += 9;
-            doc.setFont('helvetica', 'normal'); doc.text('Payment Received', 156, y, { align: 'right' }); doc.text(formatPdfMoney(paid), 190, y, { align: 'right' }); y += 11;
-            doc.setFont('helvetica', 'bold'); doc.setFillColor(245, 245, 245); doc.rect(106, y - 7, 86, 10, 'F');
-            doc.text('Balance Due', 156, y, { align: 'right' }); doc.text(formatPdfMoney(due), 190, y, { align: 'right' }); y += 11;
+            doc.setFont('helvetica', 'bold'); doc.text('Payment Received', 156, y, { align: 'right' }); doc.text(formatPdfMoney(paid), 190, y, { align: 'right' }); y += 11;
             doc.setFont('helvetica', 'normal'); doc.text('Total In Words:', 134, y, { align: 'right' });
             doc.setFont('helvetica', 'bolditalic'); doc.text(doc.splitTextToSize(amountToWords(total), 42), 140, y);
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
@@ -5601,9 +5597,9 @@
             doc.text('Ship To', marginX + addressColumnW + 4, y);
             doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
             const bill = getCustomerBillLines(order, true).join('\n');
-            const ship = getCustomerShipLines(order, true).join('\n');
+            const ship = order.gstin ? `GSTIN ${order.gstin}` : '';
             const billAddressLines = doc.splitTextToSize(bill, addressColumnW).slice(0, 8);
-            const shipAddressLines = doc.splitTextToSize(ship, addressColumnW).slice(0, 8);
+            const shipAddressLines = ship ? doc.splitTextToSize(ship, addressColumnW).slice(0, 1) : [];
             doc.text(billAddressLines, marginX, y + 5, { lineHeightFactor: 1.08 });
             doc.text(shipAddressLines, marginX + addressColumnW + 4, y + 5, { lineHeightFactor: 1.08 });
 
@@ -5642,8 +5638,7 @@
             if(discount) totalLine('Discount', formatPdfMoney(discount));
             if(roundOff) totalLine('Round Off', formatPdfMoney(roundOff));
             totalLine('Total', formatPdfMoney(total), true);
-            totalLine('Paid', formatPdfMoney(paid));
-            totalLine('Balance Due', formatPdfMoney(due), true);
+            totalLine('Payment Received', formatPdfMoney(paid), true);
 
             y += 4;
             doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
